@@ -14,5 +14,18 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
+  app:
+    build: .
+    container_name: api_app
+    restart: on-failure
+    depends_on:
+      - postgres
+    environment:
+      DATABASE_URL: "postgresql://prisma:prisma123@postgres:5432/appdb"
+      DB_HOST: postgres
+      DB_PORT: 5432
+    ports:
+      - "3000:3000"
+
 volumes:
   postgres_data:
