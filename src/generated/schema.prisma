@@ -1,0 +1,88 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---- models ----
+model Cinema {
+  id          Int      @id @default(autoincrement())
+  nome        String
+  localizacao String
+  salas       Sala[]
+  sessoes     Sessao[]
+}
+
+model Sala {
+  id         Int      @id @default(autoincrement())
+  numero     Int
+  capacidade Int
+  cinema     Cinema   @relation(fields: [cinemaId], references: [id])
+  cinemaId   Int
+  sessoes    Sessao[]
+}
+
+model Filme {
+  id             Int      @id @default(autoincrement())
+  titulo         String
+  genero         String
+  duracao        Int
+  dataLancamento DateTime
+  sessoes        Sessao[]
+}
+
+model Sessao {
+  id        Int        @id @default(autoincrement())
+  horario   DateTime
+  sala      Sala       @relation(fields: [salaId], references: [id])
+  salaId    Int
+  filme     Filme      @relation(fields: [filmeId], references: [id])
+  filmeId   Int
+  cinema    Cinema     @relation(fields: [cinemaId], references: [id])
+  cinemaId  Int
+  ingressos Ingresso[]
+}
+
+model Ingresso {
+  id       Int              @id @default(autoincrement())
+  preco    Float
+  sessao   Sessao           @relation(fields: [sessaoId], references: [id])
+  sessaoId Int
+  pedidos  PedidoIngresso[]
+}
+
+model LancheCombo {
+  id        Int                 @id @default(autoincrement())
+  nome      String
+  descricao String
+  adicional Decimal
+  subtotal  Decimal
+  pedidos   PedidoLancheCombo[]
+}
+
+model Pedido {
+  id           Int                 @id @default(autoincrement())
+  cliente      String
+  total        Decimal
+  ingressos    PedidoIngresso[]
+  lancheCombos PedidoLancheCombo[]
+}
+
+model PedidoIngresso {
+  id         Int      @id @default(autoincrement())
+  pedido     Pedido   @relation(fields: [pedidoId], references: [id])
+  pedidoId   Int
+  ingresso   Ingresso @relation(fields: [ingressoId], references: [id])
+  ingressoId Int
+}
+
+model PedidoLancheCombo {
+  id            Int         @id @default(autoincrement())
+  pedido        Pedido      @relation(fields: [pedidoId], references: [id])
+  pedidoId      Int
+  lancheCombo   LancheCombo @relation(fields: [lancheComboId], references: [id])
+  lancheComboId Int
+}
