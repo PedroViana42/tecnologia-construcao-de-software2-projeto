@@ -1,8 +1,17 @@
 import { Module } from '@nestjs/common';
 import { PrismaService } from './prisma/prisma.service';
+import { FilmeModule } from './CRUD/filme/filme.module';
+import { CinemaModule } from './CRUD/cinema/cinema.module';
+import { SalaModule } from './CRUD/sala/sala.module';
+import { SessaoModule } from './CRUD/sessao/sessao.module';
+import { IngressoModule } from './CRUD/ingresso/ingresso.module';
+import { LancheComboModule } from './CRUD/lanche-combo/lanche-combo.module';
+import { PedidoModule } from './CRUD/pedido/pedido.module';
+import { PedidoIngressoModule } from './CRUD/pedido-ingresso/pedido-ingresso.module';
+import { PedidoLancheComboModule } from './CRUD/pedido-lanche-combo/pedido-lanche-combo.module';
 
 @Module({
-  imports: [],
+  imports: [FilmeModule, CinemaModule, SalaModule, SessaoModule, IngressoModule, LancheComboModule, PedidoModule, PedidoIngressoModule, PedidoLancheComboModule],
   controllers: [],
   providers: [PrismaService],
 })
