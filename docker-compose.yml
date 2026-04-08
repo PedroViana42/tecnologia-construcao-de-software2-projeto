@@ -4,15 +4,17 @@ services:
     container_name: postgres_prisma
     restart: always
     environment:
-      POSTGRES_USER: prisma
-      POSTGRES_PASSWORD: prisma123
-      POSTGRES_DB: appdb
+      POSTGRES_USER: ${POSTGRES_USER:-prisma}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-prisma123}
+      POSTGRES_DB: ${POSTGRES_DB:-appdb}
     ports:
-      - "5433:5432" # Mantém a 5433 mapeada para acesso externo (DBeaver/Beekeeper)
+      - "${DB_PORT_EXTERNAL:-5433}:5432" # Mantém a 5433 mapeada para acesso externo (DBeaver/Beekeeper)
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    networks:
+      - app_network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U prisma -d appdb"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-prisma} -d ${POSTGRES_DB:-appdb}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -24,27 +26,58 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    networks:
+      - app_network
     environment:
       # A conexão interna usa o nome do serviço 'postgres' e a porta 5432
-      DATABASE_URL: "postgresql://prisma:prisma123@postgres:5432/appdb"
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-prisma}:${POSTGRES_PASSWORD:-prisma123}@postgres:5432/${POSTGRES_DB:-appdb}"
       DB_HOST: postgres
       DB_PORT: 5432
+      PORT: ${BACKEND_PORT:-3000}
+      FRONTEND_URL: "http://localhost:${FRONTEND_PORT:-5173}"
     ports:
-      - "3000:3000"
+      - "${BACKEND_PORT:-3000}:${BACKEND_PORT:-3000}"
+    healthcheck:
+      # Teste simples na API para confirmar se o servidor NestJS está escutando (usando wget nativo)
+      test: ["CMD-SHELL", "wget -qO- http://localhost:${BACKEND_PORT:-3000}/api || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
   studio:
     build: .
     container_name: prisma_studio
     command: npx prisma studio --port 5555 --browser none
     environment:
-      # Prisma Studio também se conecta internamente pela rede do Docker
-      DATABASE_URL: "postgresql://prisma:prisma123@postgres:5432/appdb"
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-prisma}:${POSTGRES_PASSWORD:-prisma123}@postgres:5432/${POSTGRES_DB:-appdb}"
     ports:
       - "5555:5555"
+    networks:
+      - app_network
     depends_on:
       postgres:
         condition: service_healthy
 
+  frontend:
+    build: 
+      context: ./frontend
+    container_name: react_frontend
+    restart: on-failure
+    depends_on:
+      app:
+        condition: service_healthy
+    networks:
+      - app_network
+    environment:
+      VITE_API_URL: "http://localhost:${BACKEND_PORT:-3000}"
+      PORT: ${FRONTEND_PORT:-5173}
+    ports:
+      - "${FRONTEND_PORT:-5173}:${FRONTEND_PORT:-5173}"
+
 volumes:
   postgres_data:
 
+networks:
+  app_network:
+    driver: bridge

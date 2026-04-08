@@ -6,6 +6,15 @@ import { ValidationPipe } from '@nestjs/common';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
+  // Habilitar o CORS respeitando a URL do frontend
+  // Lida de forma segura autorizando apenas a origem do React
+  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+  app.enableCors({
+    origin: frontendUrl,
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+    credentials: true,
+  });
+
   app.useGlobalPipes(new ValidationPipe({
     transform: true,
     whitelist: true,
@@ -21,6 +30,8 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api', app, document);
 
-  await app.listen(process.env.PORT ?? 3000);
+  const port = process.env.PORT ?? 3000;
+  await app.listen(port);
+  console.log(`Backend rodando na porta ${port} e aceitando chamadas de ${frontendUrl}`);
 }
 bootstrap();
