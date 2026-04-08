@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable } from '@nestjs/common';
 import { CreateIngressoDto } from './dto/create-ingresso.dto';
 import { UpdateIngressoDto } from './dto/update-ingresso.dto';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -7,11 +7,41 @@ import { PrismaService } from '../../prisma/prisma.service';
 export class IngressoService {
   constructor(private prisma: PrismaService) {}
 
-  create(createIngressoDto: CreateIngressoDto) {
+  async create(createIngressoDto: CreateIngressoDto) {
+    const { sessaoId, tipo } = createIngressoDto;
+
+    const sessao = await this.prisma.sessao.findUnique({
+      where: { id: sessaoId },
+      include: {
+        sala: true,
+        _count: {
+          select: { ingressos: true },
+        },
+      },
+    });
+
+    if (!sessao) {
+      throw new BadRequestException('Sessão não encontrada');
+    }
+
+    // Check capacity
+    if (sessao._count.ingressos >= sessao.sala.capacidade) {
+      throw new ConflictException('Capacidade máxima da sala atingida');
+    }
+
+    // Calculate valorPago
+    const valorPago = tipo === 'Meia' 
+      ? sessao.valorIngresso * 0.5 
+      : sessao.valorIngresso;
+
     return this.prisma.ingresso.create({
-      data: createIngressoDto,
+      data: {
+        ...createIngressoDto,
+        valorPago,
+      },
     });
   }
+
 
   findAll() {
     return this.prisma.ingresso.findMany();

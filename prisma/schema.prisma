@@ -24,64 +24,59 @@ model Sala {
   sessoes    Sessao[]
 }
 
+model Genero {
+  id     Int     @id @default(autoincrement())
+  nome   String  @unique
+  filmes Filme[]
+}
+
 model Filme {
-  id             Int      @id @default(autoincrement())
-  titulo         String
-  genero         String
-  duracao        Int
-  dataLancamento DateTime
-  sessoes        Sessao[]
+  id                  Int      @id @default(autoincrement())
+  titulo              String
+  duracao             Int
+  dataLancamento      DateTime
+  classificacaoEtaria String
+  genero              Genero   @relation(fields: [generoId], references: [id])
+  generoId            Int
+  sessoes             Sessao[]
 }
 
 model Sessao {
-  id        Int        @id @default(autoincrement())
-  horario   DateTime
-  sala      Sala       @relation(fields: [salaId], references: [id])
-  salaId    Int
-  filme     Filme      @relation(fields: [filmeId], references: [id])
-  filmeId   Int
-  cinema    Cinema     @relation(fields: [cinemaId], references: [id])
-  cinemaId  Int
-  ingressos Ingresso[]
+  id            Int        @id @default(autoincrement())
+  horario       DateTime
+  valorIngresso Float
+  sala          Sala       @relation(fields: [salaId], references: [id])
+  salaId        Int
+  filme         Filme      @relation(fields: [filmeId], references: [id])
+  filmeId       Int
+  cinema        Cinema     @relation(fields: [cinemaId], references: [id])
+  cinemaId      Int
+  ingressos     Ingresso[]
 }
 
 model Ingresso {
-  id       Int              @id @default(autoincrement())
-  preco    Float
-  sessao   Sessao           @relation(fields: [sessaoId], references: [id])
-  sessaoId Int
-  pedidos  PedidoIngresso[]
+  id        Int      @id @default(autoincrement())
+  tipo      String   // "Inteira" ou "Meia"
+  valorPago Float
+  sessao    Sessao   @relation(fields: [sessaoId], references: [id])
+  sessaoId  Int
+  pedidos   Pedido[] @relation("PedidoToIngresso")
 }
 
 model LancheCombo {
-  id        Int                 @id @default(autoincrement())
+  id        Int      @id @default(autoincrement())
   nome      String
   descricao String
-  adicional Decimal
-  subtotal  Decimal
-  pedidos   PedidoLancheCombo[]
+  preco     Float
+  pedidos   Pedido[] @relation("PedidoToLancheCombo")
 }
 
 model Pedido {
-  id           Int                 @id @default(autoincrement())
+  id           Int           @id @default(autoincrement())
   cliente      String
-  total        Decimal
-  ingressos    PedidoIngresso[]
-  lancheCombos PedidoLancheCombo[]
+  valorTotal   Float
+  ingressos    Ingresso[]    @relation("PedidoToIngresso")
+  lancheCombos LancheCombo[] @relation("PedidoToLancheCombo")
+  dataPedido   DateTime      @default(now())
 }
 
-model PedidoIngresso {
-  id         Int      @id @default(autoincrement())
-  pedido     Pedido   @relation(fields: [pedidoId], references: [id])
-  pedidoId   Int
-  ingresso   Ingresso @relation(fields: [ingressoId], references: [id])
-  ingressoId Int
-}
-
-model PedidoLancheCombo {
-  id            Int         @id @default(autoincrement())
-  pedido        Pedido      @relation(fields: [pedidoId], references: [id])
-  pedidoId      Int
-  lancheCombo   LancheCombo @relation(fields: [lancheComboId], references: [id])
-  lancheComboId Int
-}

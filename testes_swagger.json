@@ -1,0 +1,77 @@
+{
+  "01_Genero": {
+    "POST_Criar": {
+      "nome": "Ação e Aventura"
+    },
+    "PATCH_Atualizar": {
+      "nome": "Ação / Sci-Fi"
+    },
+    "POST_Erro_Validacao": {
+      "nome": ""
+    }
+  },
+  "02_Filme": {
+    "POST_Criar": {
+      "titulo": "Batman: O Cavaleiro das Trevas",
+      "duracao": 152,
+      "classificacaoEtaria": "12+",
+      "generoId": 1
+    },
+    "POST_Erro_GeneroInexistente": {
+      "titulo": "Filme Fantasma",
+      "duracao": 90,
+      "classificacaoEtaria": "Livre",
+      "generoId": 999
+    }
+  },
+  "03_Sala": {
+    "POST_Criar": {
+      "numero": 1,
+      "capacidade": 100
+    }
+  },
+  "04_Sessao": {
+    "POST_Criar_Sucesso": {
+      "filmeId": 1,
+      "salaId": 1,
+      "data": "2026-04-10T19:00:00.000Z",
+      "valorIngresso": 40.0
+    },
+    "POST_Erro_Regra1_Sobreposicao": {
+      "comentario": "Este cenário deve falhar pois Batman dura 152min (2h32). 19:00 + 152m + 15m buffer = 21:47. Tentar criar às 20:00 deve dar erro.",
+      "filmeId": 1,
+      "salaId": 1,
+      "data": "2026-04-10T20:00:00.000Z",
+      "valorIngresso": 40.0
+    }
+  },
+  "05_Ingresso": {
+    "POST_Criar_Inteira": {
+      "sessaoId": 1,
+      "tipo": "Inteira"
+    },
+    "POST_Criar_Meia": {
+      "sessaoId": 1,
+      "tipo": "Meia"
+    },
+    "POST_Erro_CapacidadeExcedida": {
+      "comentario": "Se a sala tiver capacidade 1, o segundo ingresso para a mesma sessão deve falhar.",
+      "sessaoId": 1,
+      "tipo": "Inteira"
+    }
+  },
+  "06_LancheCombo": {
+    "POST_Criar": {
+      "nome": "Combo Mega Pop",
+      "descricao": "Pipoca G + Refrigerante 700ml",
+      "preco": 45.0
+    }
+  },
+  "07_Pedido": {
+    "POST_Criar_Validar_Regra3_Calculo": {
+      "comentario": "Regra 3: 1 Inteira (40.0) + 1 Meia (20.0) + 1 Lanche (45.0) = Total Esperado 105.0",
+      "ingressosIds": [1, 2],
+      "lanchesIds": [1]
+    }
+  }
+}

@@ -1,22 +1,26 @@
 FROM node:20-alpine
 
+# Instala dependências do sistema
+# openssl: Necessário para o Prisma (especialmente em Alpine)
+# netcat-openbsd: Para o script de espera do banco
+RUN apk add --no-cache openssl netcat-openbsd
+
 WORKDIR /app
 
-# Instala dependências
+# Instala dependências do Node
 COPY package*.json ./
 RUN npm ci
 
-# netcat para aguardar o DB ficar disponível
-RUN apk add --no-cache netcat-openbsd
-
-# Copia o código e gera o client
+# Copia o código e gera o client inicial (para o build)
 COPY . .
 RUN npx prisma generate
 RUN npm run build
 
-# entrypoint que roda migrations antes de iniciar
+# Configura o script de entrypoint personalizado
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
+# Execução
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
-CMD ["npm", "run", "start:prod"]
+CMD ["npm", "run", "start:dev"]
+

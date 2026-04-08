@@ -7,11 +7,19 @@ import { SessaoModule } from './CRUD/sessao/sessao.module';
 import { IngressoModule } from './CRUD/ingresso/ingresso.module';
 import { LancheComboModule } from './CRUD/lanche-combo/lanche-combo.module';
 import { PedidoModule } from './CRUD/pedido/pedido.module';
-import { PedidoIngressoModule } from './CRUD/pedido-ingresso/pedido-ingresso.module';
-import { PedidoLancheComboModule } from './CRUD/pedido-lanche-combo/pedido-lanche-combo.module';
+import { GeneroModule } from './CRUD/genero/genero.module';
 
 @Module({
-  imports: [FilmeModule, CinemaModule, SalaModule, SessaoModule, IngressoModule, LancheComboModule, PedidoModule, PedidoIngressoModule, PedidoLancheComboModule],
+  imports: [
+    GeneroModule,
+    FilmeModule,
+    CinemaModule,
+    SalaModule,
+    SessaoModule,
+    IngressoModule,
+    LancheComboModule,
+    PedidoModule,
+  ],
   controllers: [],
   providers: [PrismaService],
 })
