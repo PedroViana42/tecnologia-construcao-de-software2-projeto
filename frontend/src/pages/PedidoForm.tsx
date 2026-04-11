@@ -1,29 +1,36 @@
-import { useEffect, useState } from 'react';
-import { useForm, Controller } from 'react-hook-form';
+import React, { useEffect, useState } from 'react';
+import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { pedidoSchema, PedidoFormData } from '../schemas';
 import { api } from '../services/api';
-import { Sessao, Filme, Lanche, Combo } from '../types';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Sessao, Filme, LancheCombo } from '../types';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { Form, Button, Container, Row, Col, Card } from 'react-bootstrap';
+import { CineModal } from '../components/CineModal';
 
 export function PedidoForm() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { id } = useParams<{ id: string }>();
   const isEditing = !!id;
 
+  const preSelectedFilmeId = location.state?.filmeId;
+
   const [sessoes, setSessoes] = useState<Sessao[]>([]);
   const [filmes, setFilmes] = useState<Record<string, Filme>>({});
-  const [lanches, setLanches] = useState<Lanche[]>([]);
-  const [combos, setCombos] = useState<Combo[]>([]);
+  const [itensBomboniere, setItensBomboniere] = useState<LancheCombo[]>([]);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const [alertConfig, setAlertConfig] = useState<{isOpen: boolean, title: string, message: string} | null>(null);
 
-  const { register, handleSubmit, setValue, watch, control, formState: { errors } } = useForm<PedidoFormData>({
+  const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<PedidoFormData>({
     resolver: zodResolver(pedidoSchema),
     defaultValues: {
+      cliente: '',
       quantidadeIngressos: 1,
       tipoIngresso: 'Inteira',
       lancheId: '',
-      comboId: ''
     }
   });
 
@@ -35,200 +42,294 @@ export function PedidoForm() {
 
   const loadData = async () => {
     try {
-      const [sessoesData, filmesData, lanchesData, combosData] = await Promise.all([
+      const [sessoesData, filmesData, itensData] = await Promise.all([
         api.getSessoes(),
         api.getFilmes(),
         api.getLanches(),
-        api.getCombos(),
       ]);
 
-      setSessoes(sessoesData);
+      const filteredSessoes = preSelectedFilmeId 
+        ? sessoesData.filter(s => s.filmeId === preSelectedFilmeId)
+        : sessoesData;
+
+      setSessoes(filteredSessoes);
       setFilmes(filmesData.reduce((acc, f) => ({ ...acc, [f.id]: f }), {}));
-      setLanches(lanchesData);
-      setCombos(combosData);
+      setItensBomboniere(itensData);
 
       if (isEditing) {
         const pedido = await api.getPedido(id!);
-        setValue('sessaoId', pedido.sessaoId);
-        setValue('quantidadeIngressos', pedido.quantidadeIngressos);
-        setValue('tipoIngresso', pedido.tipoIngresso);
-        setValue('lancheId', pedido.lancheId || '');
-        setValue('comboId', pedido.comboId || '');
+        setValue('cliente', pedido.cliente);
       }
     } catch (error) {
       console.error(error);
-      alert('Erro ao carregar dados');
     }
   };
+
+
+  const selectedLancheId = watchedValues.lancheId;
+  const lancheSelecionado = itensBomboniere.find(i => i.id === Number(selectedLancheId));
+  const valorLanche = lancheSelecionado ? Number(lancheSelecionado.preco) : 0;
 
   const calculateTotal = () => {
     const precoIngressoBase = 40;
     const precoIngresso = watchedValues.tipoIngresso === 'Meia' ? precoIngressoBase / 2 : precoIngressoBase;
-    let total = (watchedValues.quantidadeIngressos || 0) * precoIngresso;
-
-    if (watchedValues.lancheId) {
-      const lanche = lanches.find(l => l.id === watchedValues.lancheId);
-      if (lanche) total += lanche.preco;
-    }
-
-    if (watchedValues.comboId) {
-      const combo = combos.find(c => c.id === watchedValues.comboId);
-      if (combo) total += combo.preco;
-    }
-
-    return total;
+    const valorIngressos = (Number(watchedValues.quantidadeIngressos) || 0) * precoIngresso;
+    
+    return valorIngressos + valorLanche;
   };
 
-  const onSubmit = async (data: PedidoFormData) => {
-    const total = calculateTotal();
-    const payload = {
-      ...data,
-      valorTotal: total,
-      dataPedido: new Date().toISOString(),
-      lancheId: data.lancheId || undefined,
-      comboId: data.comboId || undefined,
-    };
+  const valorTotal = calculateTotal();
 
+  const handleOpenConfirm = () => {
+    if (!watchedValues.sessaoId) {
+      setAlertConfig({
+        isOpen: true,
+        title: 'Sessão Não Selecionada',
+        message: 'Por favor, selecione uma sessão antes de prosseguir com a compra.'
+      });
+      return;
+    }
+    setShowConfirmModal(true);
+  };
+
+  const onFinalSubmit = async (data: PedidoFormData) => {
+    setIsSubmitting(true);
     try {
-      if (isEditing) {
-        await api.updatePedido(id!, payload as any);
-      } else {
-        await api.createPedido(payload as any);
+      const sessaoId = Number(data.sessaoId);
+      
+      const ingressoPromises = [];
+      for (let i = 0; i < data.quantidadeIngressos; i++) {
+        ingressoPromises.push(api.createIngresso({
+          sessaoId: sessaoId,
+          tipo: data.tipoIngresso
+        }));
       }
-      navigate('/pedidos');
-    } catch (error) {
-      console.error(error);
-      alert('Erro ao salvar pedido');
+      
+      const ingressosCriados = await Promise.all(ingressoPromises);
+      const ingressoIds = ingressosCriados.map(ing => ing.id);
+
+      const lancheComboIds = data.lancheId ? [Number(data.lancheId)] : [];
+      
+      const pedidoPayload = {
+        cliente: data.cliente,
+        ingressoIds,
+        lancheComboIds
+      };
+
+      await api.createPedido(pedidoPayload);
+      
+      setSuccess(true);
+      setTimeout(() => {
+        document.body.style.overflow = 'unset';
+        navigate('/');
+      }, 3000);
+    } catch (error: any) {
+      console.error("ERRO AO SALVAR PEDIDO:", error);
+      setAlertConfig({
+        isOpen: true,
+        title: 'Erro no Pedido',
+        message: error.message || 'Houve um problema ao finalizar seu pedido. Por favor, tente novamente.'
+      });
+    } finally {
+      setIsSubmitting(false);
+      setShowConfirmModal(false);
     }
   };
+
+  if (success) {
+    return (
+      <Container className="text-center py-20 bg-bg min-h-screen">
+        <div className="premium-card p-12 max-w-2xl mx-auto bg-surface shadow-xl">
+          <i className="bi bi-check-circle-fill text-6xl text-accent mb-8 block animate-bounce"></i>
+          <h2 className="font-display font-bold text-4xl mb-6 text-text">Compra Realizada!</h2>
+          <p className="text-text-muted font-body text-lg leading-relaxed mb-10">
+            Seu pedido foi processado com sucesso. <br />
+            Prepare a pipoca e aproveite o espetáculo!
+          </p>
+          <div className="text-accent font-display font-bold uppercase text-xs tracking-[0.3em] bg-accent/5 py-4 rounded-lg">
+            Redirecionando para o catálogo...
+          </div>
+        </div>
+      </Container>
+    );
+  }
 
   return (
-    <Container>
-      <div className="mb-12 text-center">
-        <h2 className="marquee-title">{isEditing ? 'Editar Pedido' : 'Novo Pedido'}</h2>
-      </div>
+    <div className="bg-bg min-h-screen pb-24">
+      <Container className="py-12">
+        <div className="mb-16 text-center">
+          <h2 className="marquee-title">{isEditing ? 'Editar Pedido' : 'Finalizar Compra'}</h2>
+          {!isEditing && preSelectedFilmeId && (
+            <p className="text-accent font-display font-bold uppercase text-[10px] tracking-widest mt-4">
+              Você está comprando ingresso para: <span className="text-text">{filmes[preSelectedFilmeId]?.titulo}</span>
+            </p>
+          )}
+        </div>
 
-      <Form onSubmit={handleSubmit(onSubmit)}>
-        <Row className="g-5">
-          <Col md={8}>
-            <Card className="glass-card mb-8">
-              <Card.Body className="p-8">
-                <div className="flex items-center gap-3 mb-8">
-                  <i className="bi bi-ticket-perforated text-accent text-2xl"></i>
-                  <h5 className="font-display font-extrabold text-xl mb-0 uppercase tracking-tighter">Informações da Sessão</h5>
-                </div>
-                
-                <Form.Group className="mb-8">
-                  <Form.Label>Sessão</Form.Label>
-                  <Form.Select {...register('sessaoId')} isInvalid={!!errors.sessaoId}>
-                    <option value="">Selecione uma sessão</option>
-                    {sessoes.map(s => (
-                      <option key={s.id} value={s.id}>
-                        {filmes[s.filmeId]?.titulo} - {new Date(s.data).toLocaleDateString('pt-BR')} às {s.horario}
-                      </option>
-                    ))}
-                  </Form.Select>
-                  <Form.Control.Feedback type="invalid">{errors.sessaoId?.message}</Form.Control.Feedback>
-                </Form.Group>
+        <Form onSubmit={handleSubmit(onFinalSubmit)}>
+          <Row className="g-10">
+            <Col lg={8}>
+              <div className="space-y-8">
+                {/* Passo 1: Sessão */}
+                <Card className="premium-card bg-surface shadow-md overflow-visible">
+                  <Card.Body className="p-10">
+                    <div className="flex items-center gap-4 mb-10">
+                      <div className="w-10 h-10 rounded-full bg-accent text-white flex items-center justify-center font-display font-black text-sm shadow-lg shadow-accent/20">01</div>
+                      <h5 className="font-display font-bold text-2xl mb-0 text-[#111111]">Escolha sua Sessão</h5>
+                    </div>
+                    
+                    <Form.Group className="mb-0">
+                      <Form.Label className="form-label">Horários Disponíveis</Form.Label>
+                      <Form.Select 
+                        {...register('sessaoId')} 
+                        isInvalid={!!errors.sessaoId}
+                        className="form-control-lg !bg-bg border-none"
+                      >
+                        <option value="">Selecione o horário desejado</option>
+                        {sessoes.map(s => (
+                          <option key={s.id} value={s.id}>
+                            {filmes[s.filmeId]?.titulo} | {new Date(s.horario).toLocaleDateString('pt-BR')} às {new Date(s.horario).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                          </option>
+                        ))}
+                      </Form.Select>
+                      <Form.Control.Feedback type="invalid">{errors.sessaoId?.message}</Form.Control.Feedback>
+                    </Form.Group>
+                  </Card.Body>
+                </Card>
 
-                <Row className="g-4">
-                  <Form.Group as={Col} md="6">
-                    <Form.Label>Quantidade de Ingressos</Form.Label>
-                    <Form.Control 
-                      type="number" 
-                      {...register('quantidadeIngressos', { valueAsNumber: true })} 
-                      isInvalid={!!errors.quantidadeIngressos}
-                    />
-                    <Form.Control.Feedback type="invalid">{errors.quantidadeIngressos?.message}</Form.Control.Feedback>
-                  </Form.Group>
+                {/* Passo 2: Ingressos */}
+                <Card className="premium-card bg-surface shadow-md overflow-visible">
+                  <Card.Body className="p-10">
+                    <div className="flex items-center gap-4 mb-10">
+                      <div className="w-10 h-10 rounded-full bg-accent text-white flex items-center justify-center font-display font-black text-sm">02</div>
+                      <h5 className="font-display font-bold text-2xl mb-0 text-text">Detalhes dos Ingressos</h5>
+                    </div>
+                    
+                    <Row className="g-6">
+                      <Form.Group as={Col} md="6">
+                        <Form.Label className="form-label">Quantidade</Form.Label>
+                        <Form.Control 
+                          type="number" 
+                          min="1"
+                          placeholder="Ex: 2"
+                          {...register('quantidadeIngressos', { valueAsNumber: true })} 
+                          isInvalid={!!errors.quantidadeIngressos}
+                          className="!bg-bg border-none py-3"
+                        />
+                        <Form.Control.Feedback type="invalid">{errors.quantidadeIngressos?.message}</Form.Control.Feedback>
+                      </Form.Group>
 
-                  <Form.Group as={Col} md="6">
-                    <Form.Label>Tipo de Ingresso</Form.Label>
-                    <Form.Select {...register('tipoIngresso')}>
-                      <option value="Inteira">Inteira (R$ 40,00)</option>
-                      <option value="Meia">Meia (R$ 20,00)</option>
-                    </Form.Select>
-                  </Form.Group>
-                </Row>
-              </Card.Body>
-            </Card>
+                      <Form.Group as={Col} md="6">
+                        <Form.Label className="form-label">Tipo</Form.Label>
+                        <Form.Select {...register('tipoIngresso')} className="!bg-bg border-none">
+                          <option value="Inteira">Inteira (R$ 40,00)</option>
+                          <option value="Meia">Meia (R$ 20,00)</option>
+                        </Form.Select>
+                      </Form.Group>
+                    </Row>
+                  </Card.Body>
+                </Card>
 
-            <Card className="glass-card mb-8">
-              <Card.Body className="p-8">
-                <div className="flex items-center gap-3 mb-8">
-                  <i className="bi bi-cup-straw text-accent text-2xl"></i>
-                  <h5 className="font-display font-extrabold text-xl mb-0 uppercase tracking-tighter">Bomboniere (Opcional)</h5>
-                </div>
-                <Row className="g-4">
-                  <Form.Group as={Col} md="6">
-                    <Form.Label>Lanche</Form.Label>
-                    <Form.Select {...register('lancheId')}>
-                      <option value="">Nenhum lanche</option>
-                      {lanches.map(l => (
-                        <option key={l.id} value={l.id}>{l.nome} (R$ {l.preco.toFixed(2)})</option>
-                      ))}
-                    </Form.Select>
-                  </Form.Group>
+                {/* Passo 3: Bomboniere */}
+                <Card className="premium-card bg-surface shadow-md overflow-visible">
+                  <Card.Body className="p-10">
+                    <div className="flex items-center gap-4 mb-10">
+                      <div className="w-10 h-10 rounded-full bg-accent text-white flex items-center justify-center font-display font-black text-sm">03</div>
+                      <h5 className="font-display font-bold text-2xl mb-0 text-text">Bomboniere Especial</h5>
+                    </div>
+                    <Form.Group>
+                      <Form.Label className="form-label">Deseja adicionar um combo?</Form.Label>
+                      <Form.Select {...register('lancheId')} className="!bg-bg border-none">
+                        <option value="">Apenas os ingressos</option>
+                        {itensBomboniere.map(item => (
+                          <option key={item.id} value={item.id}>{item.nome} (+ R$ {item.preco.toFixed(2)})</option>
+                        ))}
+                      </Form.Select>
+                    </Form.Group>
+                  </Card.Body>
+                </Card>
 
-                  <Form.Group as={Col} md="6">
-                    <Form.Label>Combo</Form.Label>
-                    <Form.Select {...register('comboId')}>
-                      <option value="">Nenhum combo</option>
-                      {combos.map(c => (
-                        <option key={c.id} value={c.id}>{c.nome} (R$ {c.preco.toFixed(2)})</option>
-                      ))}
-                    </Form.Select>
-                  </Form.Group>
-                </Row>
-              </Card.Body>
-            </Card>
-          </Col>
+              </div>
+            </Col>
 
-          <Col md={4}>
-            <Card className="glass-card sticky-top" style={{ top: '120px' }}>
-              <Card.Body className="p-8">
-                <h5 className="font-display font-extrabold text-xl mb-8 uppercase tracking-tighter border-b border-white/10 pb-4">Resumo</h5>
-                <div className="font-body space-y-4 text-sm">
-                  <div className="flex justify-between text-white/60">
-                    <span>Ingressos ({watchedValues.quantidadeIngressos || 0}x):</span>
-                    <span className="text-white">R$ {((watchedValues.quantidadeIngressos || 0) * (watchedValues.tipoIngresso === 'Meia' ? 20 : 40)).toFixed(2)}</span>
+            {/* Resumo Sidebar */}
+            <Col lg={4}>
+              <Card className="premium-card bg-surface shadow-lg sticky-top !border-none" style={{ top: '100px' }}>
+                <Card.Body className="p-10">
+                  <h5 className="font-display font-bold text-xl mb-8 border-b border-border pb-6 text-text">Resumo do Pedido</h5>
+                  <div className="font-body space-y-6">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-text-muted">Ingressos ({watchedValues.quantidadeIngressos || 0}x)</span>
+                      <span className="text-text font-bold">R$ {((watchedValues.quantidadeIngressos || 0) * (watchedValues.tipoIngresso === 'Meia' ? 20 : 40)).toFixed(2)}</span>
+                    </div>
+                    
+                    {lancheSelecionado && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-text-muted">Lanches/Combos ({lancheSelecionado.nome})</span>
+                        <span className="text-text font-bold">R$ {valorLanche.toFixed(2)}</span>
+                      </div>
+                    )}
+
+
+                    <div className="pt-8 border-t border-border mt-8">
+                      <div className="flex justify-between items-end">
+                        <span className="font-display font-bold uppercase text-[10px] tracking-widest text-text-muted">Total a Pagar</span>
+                        <span className="text-4xl font-display font-extrabold text-accent">R$ {valorTotal.toFixed(2)}</span>
+                      </div>
+                    </div>
                   </div>
-                  
-                  {watchedValues.lancheId && (
-                    <div className="flex justify-between text-white/60">
-                      <span>Lanche:</span>
-                      <span className="text-white">R$ {lanches.find(l => l.id === watchedValues.lancheId)?.preco.toFixed(2)}</span>
-                    </div>
-                  )}
 
-                  {watchedValues.comboId && (
-                    <div className="flex justify-between text-white/60">
-                      <span>Combo:</span>
-                      <span className="text-white">R$ {combos.find(c => c.id === watchedValues.comboId)?.preco.toFixed(2)}</span>
-                    </div>
-                  )}
-
-                  <div className="pt-6 border-t border-white/10 mt-6">
-                    <div className="flex justify-between items-end">
-                      <span className="font-display font-bold uppercase text-xs tracking-widest text-white/40">Total</span>
-                      <span className="text-3xl font-display font-extrabold text-accent">R$ {calculateTotal().toFixed(2)}</span>
-                    </div>
+                  <div className="mt-12">
+                    <Button 
+                      className="btn-cinematic w-full !py-4 shadow-xl shadow-accent/20" 
+                      type="button"
+                      onClick={handleOpenConfirm}
+                    >
+                      Confirmar e Finalizar
+                    </Button>
                   </div>
-                </div>
+                </Card.Body>
+              </Card>
+            </Col>
+          </Row>
+        </Form>
 
-                <div className="grid gap-4 mt-12">
-                  <Button className="btn-cinematic w-full" type="submit">
-                    {isEditing ? 'Atualizar Pedido' : 'Registrar Pedido'}
-                  </Button>
-                  <Button variant="outline-secondary" className="rounded-full font-bold border-2 text-white/60 hover:text-white" onClick={() => navigate('/pedidos')}>
-                    Cancelar
-                  </Button>
-                </div>
-              </Card.Body>
-            </Card>
-          </Col>
-        </Row>
-      </Form>
-    </Container>
+        {/* Modal de Identificação Customizado */}
+        <CineModal
+          isOpen={showConfirmModal}
+          onClose={() => setShowConfirmModal(false)}
+          title="Identificação do Cliente"
+          onConfirm={handleSubmit(onFinalSubmit)}
+          confirmText="Finalizar Pagamento"
+          isConfirming={isSubmitting}
+        >
+          <p className="text-text-muted text-sm mb-8 leading-relaxed">Para finalizar sua compra de <strong className="text-accent text-xl">R$ {valorTotal.toFixed(2)}</strong>, informe seu nome para o ingresso:</p>
+          <div className="space-y-3">
+            <label className="text-[10px] uppercase tracking-widest text-text-muted font-bold">Nome do Titular</label>
+            <input 
+              type="text"
+              className="cinemodal-input"
+              {...register('cliente')}
+              placeholder="Digite seu nome completo"
+              autoFocus
+            />
+            {errors.cliente && <p className="text-danger text-xs mt-2">{errors.cliente.message}</p>}
+          </div>
+        </CineModal>
+
+        {/* Modal de Alerta/Erro */}
+        {alertConfig && (
+          <CineModal
+            isOpen={alertConfig.isOpen}
+            onClose={() => setAlertConfig(null)}
+            title={alertConfig.title}
+            confirmText="OK"
+            onConfirm={() => setAlertConfig(null)}
+          >
+            <p className="text-text-muted mb-0">{alertConfig.message}</p>
+          </CineModal>
+        )}
+      </Container>
+    </div>
   );
 }

@@ -1,0 +1,87 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Cinema {
+  id          Int      @id @default(autoincrement())
+  localizacao String
+  nome        String
+  salas       Sala[]
+  sessoes     Sessao[]
+}
+
+model Sala {
+  id         Int      @id @default(autoincrement())
+  cinemaId   Int
+  capacidade Int
+  numero     Int
+  cinema     Cinema   @relation(fields: [cinemaId], references: [id])
+  sessoes    Sessao[]
+}
+
+model Genero {
+  id     Int     @id @default(autoincrement())
+  nome   String  @unique
+  filmes Filme[]
+}
+
+model Usuario {
+  id    Int     @id @default(autoincrement())
+  nome  String
+  email String  @unique
+  senha String
+}
+
+model Filme {
+  id                  Int      @id @default(autoincrement())
+  duracao             Int
+  dataLancamento      DateTime
+  titulo              String
+  classificacaoEtaria String
+  generoId            Int
+  genero              Genero   @relation(fields: [generoId], references: [id])
+  sessoes             Sessao[]
+}
+
+model Sessao {
+  id            Int        @id @default(autoincrement())
+  horario       DateTime
+  salaId        Int
+  filmeId       Int
+  cinemaId      Int
+  valorIngresso Float
+  ingressos     Ingresso[]
+  cinema        Cinema     @relation(fields: [cinemaId], references: [id])
+  filme         Filme      @relation(fields: [filmeId], references: [id], onDelete: Cascade)
+  sala          Sala       @relation(fields: [salaId], references: [id])
+}
+
+model Ingresso {
+  id        Int      @id @default(autoincrement())
+  sessaoId  Int
+  tipo      String
+  valorPago Float
+  sessao    Sessao   @relation(fields: [sessaoId], references: [id], onDelete: Cascade)
+  pedidos   Pedido[] @relation("PedidoToIngresso")
+}
+
+model LancheCombo {
+  id        Int      @id @default(autoincrement())
+  nome      String
+  descricao String
+  preco     Float
+  pedidos   Pedido[] @relation("PedidoToLancheCombo")
+}
+
+model Pedido {
+  id           Int           @id @default(autoincrement())
+  cliente      String
+  dataPedido   DateTime      @default(now())
+  valorTotal   Float
+  ingressos    Ingresso[]    @relation("PedidoToIngresso")
+  lancheCombos LancheCombo[] @relation("PedidoToLancheCombo")
+}

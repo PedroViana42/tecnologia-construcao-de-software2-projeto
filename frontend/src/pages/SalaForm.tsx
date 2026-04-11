@@ -1,10 +1,13 @@
-import { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { salaSchema, SalaFormData } from '../schemas';
 import { api } from '../services/api';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Form, Button, Container, Row, Col } from 'react-bootstrap';
+import { CineModal } from '../components/CineModal';
+
+
 
 export function SalaForm() {
   const navigate = useNavigate();
@@ -14,6 +17,14 @@ export function SalaForm() {
   const { register, handleSubmit, setValue, formState: { errors } } = useForm<SalaFormData>({
     resolver: zodResolver(salaSchema),
   });
+
+  const [modalConfig, setModalConfig] = useState<{
+    isOpen: boolean, 
+    title: string, 
+    message: string, 
+    type: 'success' | 'error',
+    onClose?: () => void
+  } | null>(null);
 
   useEffect(() => {
     if (isEditing) {
@@ -28,40 +39,68 @@ export function SalaForm() {
       setValue('capacidade', sala.capacidade);
     } catch (error) {
       console.error(error);
-      alert('Erro ao carregar sala');
+      setModalConfig({
+        isOpen: true,
+        title: 'Erro de Carregamento',
+        message: 'Não foi possível carregar os dados da sala.',
+        type: 'error'
+      });
     }
+  };
+
+  const handleSuccessModal = (message: string) => {
+    setModalConfig({
+      isOpen: true,
+      title: 'Sucesso',
+      message: message,
+      type: 'success',
+      onClose: () => navigate('/admin/salas')
+    });
+
+    setTimeout(() => {
+      setModalConfig(null);
+      document.body.style.overflow = 'unset';
+      navigate('/admin/salas');
+    }, 2500);
   };
 
   const onSubmit = async (data: SalaFormData) => {
     try {
+      const payload = { ...data, cinemaId: 1 };
       if (isEditing) {
-        await api.updateSala(id!, data as any);
+        await api.updateSala(id!, payload as any);
+        handleSuccessModal('Sala atualizada com sucesso!');
       } else {
-        await api.createSala(data as any);
+        await api.createSala(payload as any);
+        handleSuccessModal('Sala cadastrada com sucesso!');
       }
-      navigate('/salas');
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      alert('Erro ao salvar sala');
+      setModalConfig({
+        isOpen: true,
+        title: 'Erro ao Salvar',
+        message: error.message || 'Houve um problema ao salvar as alterações.',
+        type: 'error'
+      });
     }
   };
 
   return (
-    <Container>
-      <div className="mb-5 text-center">
-        <h2 className="marquee-title">{isEditing ? 'Editar Sala' : 'Nova Sala'}</h2>
+    <Container className="py-12">
+      <div className="mb-12 text-center">
+        <h2 className="admin-page-title mb-8">{isEditing ? 'Editar Sala' : 'Nova Sala'}</h2>
       </div>
 
-      <div className="card-retro p-5 ticket-shape max-w-2xl mx-auto">
+      <div className="premium-card p-12 max-w-2xl mx-auto bg-surface shadow-md">
         <Form onSubmit={handleSubmit(onSubmit)}>
           <Row className="mb-4">
             <Form.Group as={Col} md="6" controlId="numero">
               <Form.Label className="font-bold uppercase text-xs tracking-widest">Número da Sala</Form.Label>
               <Form.Control
-                type="text"
-                {...register('numero')}
+                type="number"
+                {...register('numero', { valueAsNumber: true })}
                 isInvalid={!!errors.numero}
-                className="bg-transparent border-[#C5A059] text-[#0A192F] font-typewriter"
+                className="form-control-lg !bg-bg border-none"
               />
               <Form.Control.Feedback type="invalid">
                 {errors.numero?.message}
@@ -74,7 +113,7 @@ export function SalaForm() {
                 type="number"
                 {...register('capacidade', { valueAsNumber: true })}
                 isInvalid={!!errors.capacidade}
-                className="bg-transparent border-[#C5A059] text-[#0A192F] font-typewriter"
+                className="form-control-lg !bg-bg border-none"
               />
               <Form.Control.Feedback type="invalid">
                 {errors.capacidade?.message}
@@ -82,16 +121,34 @@ export function SalaForm() {
             </Form.Group>
           </Row>
 
-          <div className="d-flex gap-3">
-            <Button variant="outline-secondary" className="font-bold border-2" onClick={() => navigate('/salas')}>
+          <div className="d-flex gap-4 justify-content-end mt-8">
+            <Button variant="link" className="text-text-muted no-underline hover:text-text font-bold text-xs uppercase tracking-widest" onClick={() => navigate('/admin/salas')}>
               Cancelar
             </Button>
-            <Button className="btn-retro" type="submit">
+            <Button className="btn-cinematic" type="submit">
               Salvar Sala
             </Button>
           </div>
         </Form>
       </div>
+
+      {modalConfig && (
+        <CineModal
+          isOpen={modalConfig.isOpen}
+          onClose={() => {
+            if (modalConfig.onClose) modalConfig.onClose();
+            setModalConfig(null);
+          }}
+          title={modalConfig.title}
+          confirmText="OK"
+          onConfirm={() => {
+            if (modalConfig.onClose) modalConfig.onClose();
+            setModalConfig(null);
+          }}
+        >
+          <p className="text-text-muted mb-0">{modalConfig.message}</p>
+        </CineModal>
+      )}
     </Container>
   );
 }

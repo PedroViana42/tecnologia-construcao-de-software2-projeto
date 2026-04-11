@@ -1,127 +1,149 @@
 import { useEffect, useState } from 'react';
 import { api } from '../services/api';
-import { Lanche, Combo } from '../types';
-import { Container, Button, Card, Row, Col, Badge } from 'react-bootstrap';
+import { LancheCombo } from '../types';
+import { Container, Button, Card, Row, Col } from 'react-bootstrap';
+import { Link } from 'react-router-dom';
+import { CineModal } from '../components/CineModal';
 
 export function Bomboniere() {
-  const [lanches, setLanches] = useState<Lanche[]>([]);
-  const [combos, setCombos] = useState<Combo[]>([]);
+  const [itens, setItens] = useState<LancheCombo[]>([]);
+  
+  // Modal states
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<LancheCombo | null>(null);
+  const [clienteNome, setClienteNome] = useState('');
+  const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     loadData();
   }, []);
 
   const loadData = async () => {
-    const [lanchesData, combosData] = await Promise.all([
-      api.getLanches(),
-      api.getCombos(),
-    ]);
-    setLanches(lanchesData);
-    setCombos(combosData);
+    try {
+      const data = await api.getLanches();
+      setItens(data || []);
+    } catch (error) {
+      console.error(error);
+    }
   };
 
-  const handleVender = async (item: Lanche | Combo, isCombo: boolean) => {
-    if (confirm(`Confirmar venda de ${item.nome} por R$ ${item.preco.toFixed(2)}?`)) {
-      try {
-        await fetch(`${import.meta.env.VITE_API_URL || '/api'}/vendasLanches`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            itemId: item.id,
-            isCombo,
-            nome: item.nome,
-            preco: item.preco,
-            data: new Date().toISOString()
-          })
-        });
-        alert('Venda realizada com sucesso!');
-      } catch (error) {
-        console.error(error);
-        alert('Erro ao realizar venda');
-      }
+  const handleOpenVenda = (item: LancheCombo) => {
+    setSelectedItem(item);
+    setClienteNome('');
+    setErrorMsg(null);
+    setIsModalOpen(true);
+  };
+
+  const handleConfirmVenda = async () => {
+    if (!selectedItem) return;
+    if (!clienteNome.trim()) {
+      setErrorMsg('Por favor, informe o nome do cliente.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await api.createPedido({
+        cliente: clienteNome.trim(),
+        lancheComboIds: [selectedItem.id],
+      });
+      setIsModalOpen(false);
+      setIsSuccessModalOpen(true);
+    } catch (error: any) {
+      console.error(error);
+      setErrorMsg(error.message || 'Erro ao realizar venda');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   return (
-    <Container>
-      <div className="mb-12 text-center">
-        <h2 className="marquee-title">Bomboniere</h2>
-        <p className="text-accent font-display font-bold tracking-[0.4em] uppercase text-xs">Delícias do Cinema</p>
-      </div>
-
-      <div className="mb-16">
-        <div className="flex items-center gap-4 mb-8">
-          <i className="bi bi-stars text-accent text-2xl"></i>
-          <h4 className="font-display font-extrabold text-2xl mb-0 uppercase tracking-tighter">Combos Especiais</h4>
-          <div className="flex-grow h-px bg-white/10"></div>
+    <div className="bg-bg min-h-screen pb-24">
+      <Container className="py-12">
+        <div className="flex justify-start mb-16">
+          <Link to="/admin" className="back-link">
+            <i className="bi bi-arrow-left"></i>
+            Voltar para o Painel
+          </Link>
         </div>
-        <Row xs={1} md={2} lg={3} className="g-5">
-          {combos.map((combo) => (
-            <Col key={combo.id}>
-              <Card className="glass-card h-100">
-                <Card.Header className="bg-white/5 border-0 p-6">
-                  <h5 className="font-display font-bold mb-0 text-white">{combo.nome}</h5>
-                </Card.Header>
-                <Card.Body className="p-6">
-                  <div className="font-body text-sm text-white/60">
-                    <strong className="text-accent uppercase text-[10px] tracking-widest block mb-3">Itens inclusos</strong>
-                    <ul className="space-y-2">
-                      {combo.lanchesIds.map((id, index) => {
-                        const lanche = lanches.find(l => l.id === id);
-                        return (
-                          <li key={index} className="flex items-center gap-2">
-                            <i className="bi bi-check2 text-accent"></i>
-                            {lanche?.nome || 'Item'}
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  </div>
-                </Card.Body>
-                <Card.Footer className="bg-transparent border-0 p-6 pt-0 d-flex justify-content-between align-items-center">
-                  <span className="text-2xl font-display font-extrabold text-white">R$ {combo.preco.toFixed(2)}</span>
-                  <Button className="btn-cinematic !px-6 !py-2 !text-xs" onClick={() => handleVender(combo, true)}>
-                    <i className="bi bi-cart-plus me-2"></i>Vender
-                  </Button>
-                </Card.Footer>
-              </Card>
-            </Col>
-          ))}
-        </Row>
-      </div>
 
-      <div>
-        <div className="flex items-center gap-4 mb-8">
-          <i className="bi bi-cup-straw text-accent text-2xl"></i>
-          <h4 className="font-display font-extrabold text-2xl mb-0 uppercase tracking-tighter">Lanches Avulsos</h4>
-          <div className="flex-grow h-px bg-white/10"></div>
+        <div className="mb-20 text-center">
+          <h2 className="marquee-title font-display font-bold text-4xl mb-6 text-text">Bomboniere</h2>
+          <p className="text-accent font-display font-bold tracking-[0.4em] uppercase text-xs">Delícias do Cinema</p>
         </div>
-        <Row xs={1} md={2} lg={4} className="g-4">
-          {lanches.map((lanche) => (
-            <Col key={lanche.id}>
-              <Card className="glass-card h-100">
-                <Card.Body className="p-6">
-                  <Card.Title className="font-display font-bold text-lg mb-2 text-white">{lanche.nome}</Card.Title>
-                  <Card.Subtitle className="mb-4 text-accent text-[10px] uppercase font-bold tracking-[0.2em]">{lanche.tipo}</Card.Subtitle>
-                </Card.Body>
-                <Card.Footer className="bg-transparent border-0 p-6 pt-0 d-flex justify-content-between align-items-center">
-                  <span className="text-xl font-display font-extrabold text-white">R$ {lanche.preco.toFixed(2)}</span>
-                  <Button className="btn-cinematic !px-4 !py-2 !text-[10px]" onClick={() => handleVender(lanche, false)}>
-                    <i className="bi bi-cart-plus me-2"></i>Vender
-                  </Button>
-                </Card.Footer>
-              </Card>
-            </Col>
-          ))}
-          {lanches.length === 0 && (
-            <Col xs={12}>
-              <div className="glass-card p-12 text-center">
-                <p className="text-white/40 font-display uppercase tracking-widest text-xs">Nenhum lanche disponível no momento.</p>
-              </div>
-            </Col>
-          )}
-        </Row>
-      </div>
-    </Container>
+
+        <div>
+          <div className="flex items-center gap-6 mb-12">
+            <div className="w-12 h-12 rounded-xl bg-accent/5 flex items-center justify-center shrink-0">
+              <i className="bi bi-shop text-accent text-2xl"></i>
+            </div>
+            <h4 className="font-display font-bold text-2xl mb-0 text-text">Produtos em Destaque</h4>
+            <div className="flex-grow h-px bg-border"></div>
+          </div>
+          
+          <Row xs={1} md={2} lg={4} className="g-8">
+            {itens.map((item) => (
+              <Col key={item.id}>
+                <Card className="premium-card h-100 bg-surface shadow-md hover:shadow-xl border-none">
+                  <Card.Body className="p-8">
+                    <Card.Title className="font-display font-bold text-xl mb-3 text-text">{item.nome}</Card.Title>
+                    <Card.Subtitle className="mb-0 text-text-muted text-xs leading-relaxed font-normal">{item.descricao}</Card.Subtitle>
+                  </Card.Body>
+                  <Card.Footer className="bg-bg/10 border-t border-border p-8 d-flex justify-content-between align-items-center">
+                    <span className="text-xl font-display font-black text-text">R$ {item.preco.toFixed(2)}</span>
+                    <Button className="btn-cinematic !px-5 !py-2.5 !text-[11px]" onClick={() => handleOpenVenda(item)}>
+                      Vender
+                    </Button>
+                  </Card.Footer>
+                </Card>
+              </Col>
+            ))}
+          </Row>
+        </div>
+
+        {/* Modal de Venda */}
+        <CineModal
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          title="Realizar Venda"
+          onConfirm={handleConfirmVenda}
+          confirmText="Confirmar Venda"
+          isConfirming={isSubmitting}
+        >
+          <p className="mb-6 text-text-muted">Vendendo agora: <strong className="text-text">{selectedItem?.nome}</strong></p>
+          <div className="space-y-3">
+            <label className="text-[10px] uppercase tracking-widest text-text-muted font-bold">Nome do Cliente</label>
+            <input 
+              type="text"
+              className="cinemodal-input"
+              placeholder="Ex: João Silva"
+              value={clienteNome}
+              onChange={(e) => setClienteNome(e.target.value)}
+              autoFocus
+            />
+            {errorMsg && <p className="text-danger text-xs mt-2">{errorMsg}</p>}
+          </div>
+        </CineModal>
+
+        {/* Modal de Sucesso */}
+        <CineModal
+          isOpen={isSuccessModalOpen}
+          onClose={() => setIsSuccessModalOpen(false)}
+          title="Venda Concluída!"
+          confirmText="Entendido"
+          onConfirm={() => setIsSuccessModalOpen(false)}
+        >
+          <div className="text-center py-8">
+            <div className="w-20 h-20 bg-[#f1f3f5] rounded-full flex items-center justify-center mx-auto mb-6">
+              <i className="bi bi-check-circle-fill text-accent text-5xl"></i>
+            </div>
+            <p className="mb-0 text-text font-bold text-lg">O item foi registrado com sucesso!</p>
+            <p className="text-text-muted text-sm mt-2">O pedido já está no histórico geral.</p>
+          </div>
+        </CineModal>
+      </Container>
+    </div>
   );
 }

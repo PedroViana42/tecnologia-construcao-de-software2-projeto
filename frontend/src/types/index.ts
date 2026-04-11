@@ -1,55 +1,53 @@
 export interface Filme {
-  id: string;
+  id: number;
   titulo: string;
-  sinopse: string;
-  classificacao: string;
   duracao: number;
-  genero: string;
-  datasExibicao: string;
+  dataLancamento: string;
+  classificacaoEtaria: string;
+  generoId: number;
+  genero?: Genero;
 }
 
 export interface Sala {
-  id: string;
-  numero: string;
+  id: number;
+  numero: number;
   capacidade: number;
+  cinemaId: number;
 }
 
 export interface Sessao {
-  id: string;
-  filmeId: string;
-  salaId: string;
-  data: string;
+  id: number;
+  filmeId: number;
+  salaId: number;
+  cinemaId: number;
   horario: string;
+  valorIngresso: number;
 }
 
 export interface Ingresso {
-  id: string;
-  sessaoId: string;
+  id: number;
+  sessaoId: number;
   tipo: 'Inteira' | 'Meia';
-  valor: number;
+  valorPago: number;
 }
 
-export interface Lanche {
-  id: string;
+export interface LancheCombo {
+  id: number;
   nome: string;
+  descricao: string;
   preco: number;
-  tipo: string; // e.g. 'Pipoca', 'Bebida', 'Doce'
-}
-
-export interface Combo {
-  id: string;
-  nome: string;
-  preco: number;
-  lanchesIds: string[];
 }
 
 export interface Pedido {
-  id: string;
-  sessaoId: string;
-  quantidadeIngressos: number;
-  tipoIngresso: 'Inteira' | 'Meia';
-  lancheId?: string;
-  comboId?: string;
-  valorTotal: number;
+  id: number;
+  cliente: string;
   dataPedido: string;
+  valorTotal: number;
+  ingressos?: Ingresso[];
+  lancheCombos?: LancheCombo[];
+}
+
+export interface Genero {
+  id: number;
+  nome: string;
 }
