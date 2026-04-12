@@ -6,34 +6,40 @@ import { ValidationPipe } from '@nestjs/common';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
+  // Configuração Global de Prefixo
   app.setGlobalPrefix('api');
 
-  // Habilitar o CORS respeitando a URL do frontend
-  // Lida de forma segura autorizando apenas a origem do React
+  // Configuração dinâmica de CORS
   const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
   app.enableCors({
     origin: frontendUrl,
-    methods: 'GET,POST,PATCH,DELETE,OPTIONS',
     credentials: true,
+    methods: 'GET,POST,PATCH,DELETE,OPTIONS',
   });
 
+  // Configuração global de Pipes (Validação via class-validator)
   app.useGlobalPipes(new ValidationPipe({
     transform: true,
     whitelist: true,
     forbidNonWhitelisted: true,
   }));
 
+  // Documentação Swagger
   const config = new DocumentBuilder()
     .setTitle('CineAPI')
-    .setDescription('Documentação da API de Cinema e Lanches')
+    .setDescription('Documentação da API Cineweb (NestJS padrão)')
     .setVersion('1.0')
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api/docs', app, document);
 
-  const port = process.env.PORT ?? 3000;
+  // Inicialização do Servidor
+  const port = process.env.PORT || 3000;
   await app.listen(port);
-  console.log(`Backend rodando na porta ${port} e aceitando chamadas de ${frontendUrl}`);
+  
+  console.log(`🚀 Cineweb API rodando na porta ${port}`);
+  console.log(`🔗 CORS autorizado para: ${frontendUrl}`);
+  console.log(`📄 Swagger disponível em: http://localhost:${port}/api/docs`);
 }
 bootstrap();
