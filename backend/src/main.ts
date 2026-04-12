@@ -12,7 +12,7 @@ async function bootstrap() {
   // Configuração dinâmica de CORS (Normalizada para evitar erro de trailing slash)
   const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:5173').replace(/\/$/, '');
   app.enableCors({
-    origin: frontendUrl,
+    origin: [frontendUrl, `${frontendUrl}/`],
     credentials: true,
     methods: 'GET,POST,PATCH,DELETE,OPTIONS',
   });

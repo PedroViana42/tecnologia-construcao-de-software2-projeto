@@ -2,7 +2,9 @@ import 'dotenv/config';
 import { PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 
-const prisma = new PrismaClient();
+const prisma = new PrismaClient({
+  log: ['info', 'warn', 'error'],
+});
 
 async function main() {
   console.log('🌱 Iniciando seed...');
@@ -22,7 +24,7 @@ async function main() {
         senha: hashedPassword,
       },
     });
-    console.log('✅ Usuário admin criado: admin@cineweb.com / admin123');
+    console.log('✅ Usuário admin criado: admin@cineweb.com / Cineweb743');
   } else {
     console.log('ℹ️ Usuário admin já existe.');
   }
