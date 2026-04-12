@@ -9,8 +9,8 @@ async function bootstrap() {
   // Configuração Global de Prefixo
   app.setGlobalPrefix('api');
 
-  // Configuração dinâmica de CORS
-  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+  // Configuração dinâmica de CORS (Normalizada para evitar erro de trailing slash)
+  const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:5173').replace(/\/$/, '');
   app.enableCors({
     origin: frontendUrl,
     credentials: true,
