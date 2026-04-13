@@ -13,7 +13,12 @@ export function Layout() {
       </main>
 
       <footer className="bg-black text-white/40 py-16 border-t border-white/5 text-center">
-        <p className="font-display font-extrabold text-3xl mb-6 tracking-tighter text-white">CINE <span className="text-accent">WEB</span></p>
+        <div className="flex justify-center items-center gap-2 mb-6">
+          <div className="bg-accent px-2 py-0.5 rounded-[2px]">
+            <span className="text-white font-extrabold text-2xl tracking-tighter">CINE</span>
+          </div>
+          <span className="text-white font-extrabold text-2xl tracking-tighter">WEB</span>
+        </div>
         <div className="flex justify-center gap-12 mb-8">
           <i className="bi bi-ticket-perforated text-xl hover:text-accent transition-colors"></i>
           <i className="bi bi-film text-xl hover:text-accent transition-colors"></i>

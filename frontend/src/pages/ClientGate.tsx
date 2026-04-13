@@ -33,7 +33,7 @@ const ClientGate: React.FC<ClientGateProps> = ({ onSuccess }) => {
             <div className="bg-accent px-3 py-1 rounded-[4px] shadow-lg shadow-accent/20">
               <span className="text-white font-extrabold text-2xl tracking-tighter">CINE</span>
             </div>
-            <h1 className="text-text font-extrabold text-4xl tracking-tighter">WEB</h1>
+            <h1 className="text-black font-extrabold text-4xl tracking-tighter">WEB</h1>
           </div>
           <div className="h-[2px] w-12 bg-accent mx-auto mb-6"></div>
           <p className="text-text-muted font-display text-[11px] tracking-[0.6em] uppercase font-bold">The Premium Experience</p>

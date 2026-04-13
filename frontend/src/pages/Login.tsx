@@ -35,7 +35,12 @@ const Login: React.FC = () => {
     <div className="login-container">
       <div className="login-card">
         <div className="login-header">
-          <h1>CineWeb</h1>
+          <div className="flex justify-center items-center gap-2 mb-2">
+            <div className="bg-accent px-2 py-0.5 rounded-[2px]">
+              <span className="text-white font-extrabold text-2xl tracking-tighter">CINE</span>
+            </div>
+            <span className="text-black font-extrabold text-2xl tracking-tighter">WEB</span>
+          </div>
           <p>Acesso Administrativo</p>
         </div>
 

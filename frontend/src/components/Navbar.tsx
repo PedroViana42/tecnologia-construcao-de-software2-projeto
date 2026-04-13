@@ -14,10 +14,10 @@ export function Navbar() {
     <BsNavbar expand="lg" className="navbar sticky-top">
       <Container>
         <BsNavbar.Brand as={Link} to="/" className="flex items-center gap-2 group no-underline">
-          <div className="bg-text px-2 py-0.5 rounded-[2px] transition-transform group-hover:scale-105">
+          <div className="bg-accent px-2 py-0.5 rounded-[2px] transition-transform group-hover:scale-105">
             <span className="text-white font-extrabold text-xl tracking-tighter">CINE</span>
           </div>
-          <span className="text-text font-extrabold text-xl tracking-tighter group-hover:text-accent transition-colors">WEB</span>
+          <span className="text-black font-extrabold text-xl tracking-tighter group-hover:text-accent transition-colors">WEB</span>
         </BsNavbar.Brand>
 
         <div className="ms-auto flex items-center gap-2">
