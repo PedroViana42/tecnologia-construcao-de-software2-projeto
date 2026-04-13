@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { pedidoSchema, PedidoFormData } from '../schemas';
 import { api } from '../services/api';
@@ -24,14 +24,18 @@ export function PedidoForm() {
   const [success, setSuccess] = useState(false);
   const [alertConfig, setAlertConfig] = useState<{isOpen: boolean, title: string, message: string} | null>(null);
 
-  const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<PedidoFormData>({
+  const { register, handleSubmit, setValue, watch, control, formState: { errors } } = useForm<PedidoFormData>({
     resolver: zodResolver(pedidoSchema),
     defaultValues: {
       cliente: '',
-      quantidadeIngressos: 1,
-      tipoIngresso: 'Inteira',
+      ingressos: [{ tipo: 'Inteira', quantidade: 1 }],
       lancheId: '',
     }
+  });
+
+  const { fields, append, remove } = useFieldArray({
+    control,
+    name: 'ingressos'
   });
 
   const watchedValues = watch();
@@ -70,10 +74,15 @@ export function PedidoForm() {
   const lancheSelecionado = itensBomboniere.find(i => i.id === Number(selectedLancheId));
   const valorLanche = lancheSelecionado ? Number(lancheSelecionado.preco) : 0;
 
+  const selectedSessaoId = watchedValues.sessaoId;
+  const sessaoSelecionada = sessoes.find(s => s.id === Number(selectedSessaoId));
+  const precoIngressoBase = sessaoSelecionada ? Number(sessaoSelecionada.valorIngresso) : 0;
+
   const calculateTotal = () => {
-    const precoIngressoBase = 40;
-    const precoIngresso = watchedValues.tipoIngresso === 'Meia' ? precoIngressoBase / 2 : precoIngressoBase;
-    const valorIngressos = (Number(watchedValues.quantidadeIngressos) || 0) * precoIngresso;
+    const valorIngressos = (watchedValues.ingressos || []).reduce((sum, item) => {
+      const preco = item.tipo === 'Meia' ? precoIngressoBase / 2 : precoIngressoBase;
+      return sum + ((Number(item.quantidade) || 0) * preco);
+    }, 0);
     
     return valorIngressos + valorLanche;
   };
@@ -98,11 +107,13 @@ export function PedidoForm() {
       const sessaoId = Number(data.sessaoId);
       
       const ingressoPromises = [];
-      for (let i = 0; i < data.quantidadeIngressos; i++) {
-        ingressoPromises.push(api.createIngresso({
-          sessaoId: sessaoId,
-          tipo: data.tipoIngresso
-        }));
+      for (const item of data.ingressos) {
+        for (let i = 0; i < item.quantidade; i++) {
+          ingressoPromises.push(api.createIngresso({
+            sessaoId: sessaoId,
+            tipo: item.tipo
+          }));
+        }
       }
       
       const ingressosCriados = await Promise.all(ingressoPromises);
@@ -200,33 +211,58 @@ export function PedidoForm() {
                 {/* Passo 2: Ingressos */}
                 <Card className="premium-card bg-surface shadow-md overflow-visible">
                   <Card.Body className="p-10">
-                    <div className="flex items-center gap-4 mb-10">
-                      <div className="w-10 h-10 rounded-full bg-accent text-white flex items-center justify-center font-display font-black text-sm">02</div>
-                      <h5 className="font-display font-bold text-2xl mb-0 text-text">Detalhes dos Ingressos</h5>
+                    <div className="flex items-center justify-between mb-10">
+                      <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 rounded-full bg-accent text-white flex items-center justify-center font-display font-black text-sm">02</div>
+                        <h5 className="font-display font-bold text-2xl mb-0 text-text">Detalhes dos Ingressos</h5>
+                      </div>
+                      <Button 
+                        variant="outline-danger" 
+                        size="sm" 
+                        className="rounded-full font-display font-bold text-[10px] uppercase tracking-widest px-4 border-2"
+                        onClick={() => append({ tipo: 'Inteira', quantidade: 1 })}
+                      >
+                        + Adicionar Tipo
+                      </Button>
                     </div>
                     
-                    <Row className="g-6">
-                      <Form.Group as={Col} md="6">
-                        <Form.Label className="form-label">Quantidade</Form.Label>
-                        <Form.Control 
-                          type="number" 
-                          min="1"
-                          placeholder="Ex: 2"
-                          {...register('quantidadeIngressos', { valueAsNumber: true })} 
-                          isInvalid={!!errors.quantidadeIngressos}
-                          className="!bg-bg border-none py-3"
-                        />
-                        <Form.Control.Feedback type="invalid">{errors.quantidadeIngressos?.message}</Form.Control.Feedback>
-                      </Form.Group>
+                    <div className="space-y-6">
+                      {fields.map((field, index) => (
+                        <div key={field.id} className="p-6 bg-bg rounded-xl relative animate-fade-in border border-transparent hover:border-accent/10 transition-all">
+                          {fields.length > 1 && (
+                            <button 
+                              type="button"
+                              className="absolute -top-2 -right-2 w-6 h-6 bg-white border border-border rounded-full flex items-center justify-center text-text-muted hover:text-accent hover:border-accent transition-colors shadow-sm"
+                              onClick={() => remove(index)}
+                            >
+                              <i className="bi bi-x-lg text-[10px]"></i>
+                            </button>
+                          )}
+                          <Row className="g-6">
+                            <Form.Group as={Col} md="6">
+                              <Form.Label className="form-label">Tipo</Form.Label>
+                              <Form.Select 
+                                {...register(`ingressos.${index}.tipo` as const)} 
+                                className="!bg-surface border-none"
+                              >
+                                <option value="Inteira">Inteira (R$ {precoIngressoBase.toFixed(2)})</option>
+                                <option value="Meia">Meia (R$ {(precoIngressoBase / 2).toFixed(2)})</option>
+                              </Form.Select>
+                            </Form.Group>
 
-                      <Form.Group as={Col} md="6">
-                        <Form.Label className="form-label">Tipo</Form.Label>
-                        <Form.Select {...register('tipoIngresso')} className="!bg-bg border-none">
-                          <option value="Inteira">Inteira (R$ 40,00)</option>
-                          <option value="Meia">Meia (R$ 20,00)</option>
-                        </Form.Select>
-                      </Form.Group>
-                    </Row>
+                            <Form.Group as={Col} md="6">
+                              <Form.Label className="form-label">Quantidade</Form.Label>
+                              <Form.Control 
+                                type="number" 
+                                min="1"
+                                {...register(`ingressos.${index}.quantidade` as const, { valueAsNumber: true })} 
+                                className="!bg-surface border-none py-3"
+                              />
+                            </Form.Group>
+                          </Row>
+                        </div>
+                      ))}
+                    </div>
                   </Card.Body>
                 </Card>
 
@@ -258,9 +294,17 @@ export function PedidoForm() {
                 <Card.Body className="p-10">
                   <h5 className="font-display font-bold text-xl mb-8 border-b border-border pb-6 text-text">Resumo do Pedido</h5>
                   <div className="font-body space-y-6">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-text-muted">Ingressos ({watchedValues.quantidadeIngressos || 0}x)</span>
-                      <span className="text-text font-bold">R$ {((watchedValues.quantidadeIngressos || 0) * (watchedValues.tipoIngresso === 'Meia' ? 20 : 40)).toFixed(2)}</span>
+                    <div className="space-y-4">
+                      {watchedValues.ingressos?.map((ing, idx) => {
+                        const preco = ing.tipo === 'Meia' ? precoIngressoBase / 2 : precoIngressoBase;
+                        if (!ing.quantidade) return null;
+                        return (
+                          <div key={idx} className="flex justify-between text-sm">
+                            <span className="text-text-muted">{ing.tipo} ({ing.quantidade}x)</span>
+                            <span className="text-text font-bold">R$ {(ing.quantidade * preco).toFixed(2)}</span>
+                          </div>
+                        );
+                      })}
                     </div>
                     
                     {lancheSelecionado && (

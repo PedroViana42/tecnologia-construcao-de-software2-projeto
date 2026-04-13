@@ -120,7 +120,7 @@ export const api = {
     const res = await fetchWithAuth(`${API_URL}/ingresso`);
     return handleResponse(res);
   },
-  createIngresso: async (ingresso: Omit<Ingresso, 'id'>): Promise<Ingresso> => {
+  createIngresso: async (ingresso: Pick<Ingresso, 'sessaoId' | 'tipo'>): Promise<Ingresso> => {
     const res = await fetchWithAuth(`${API_URL}/ingresso`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

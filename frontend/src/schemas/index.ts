@@ -44,8 +44,10 @@ export type LancheComboFormData = z.infer<typeof lancheComboSchema>;
 export const pedidoSchema = z.object({
   cliente: z.string().min(1, 'Nome do cliente é obrigatório'),
   sessaoId: z.string().min(1, 'Sessão é obrigatória'),
-  quantidadeIngressos: z.number().min(1, 'Mínimo de 1 ingresso'),
-  tipoIngresso: z.enum(['Inteira', 'Meia']),
+  ingressos: z.array(z.object({
+    tipo: z.enum(['Inteira', 'Meia']),
+    quantidade: z.number().min(1, 'Mínimo de 1 ingresso'),
+  })).min(1, 'Pelo menos um ingresso é necessário'),
   lancheId: z.string().optional(),
   valorTotal: z.number().optional(),
 });
