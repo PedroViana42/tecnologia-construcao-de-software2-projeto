@@ -61,8 +61,11 @@ export function PedidoForm() {
       setItensBomboniere(itensData);
 
       if (isEditing) {
+        console.log("DEBUG: Carregando dados para edição do ID:", id);
         const pedido = await api.getPedido(id!);
-        setValue('cliente', pedido.cliente);
+        console.log("DEBUG: Dados recebidos do backend:", pedido);
+        
+        if (pedido.cliente) setValue('cliente', pedido.cliente);
         
         if (pedido.ingressos && pedido.ingressos.length > 0) {
           setValue('sessaoId', String(pedido.ingressos[0].sessaoId));
@@ -123,6 +126,7 @@ export function PedidoForm() {
   };
 
   const onFinalSubmit = async (data: PedidoFormData) => {
+    console.log("DEBUG: Início da submissão", { isEditing, id, url: window.location.pathname });
     setIsSubmitting(true);
     try {
       const sessaoId = Number(data.sessaoId);
@@ -148,9 +152,12 @@ export function PedidoForm() {
         lancheComboIds
       };
 
-      if (isEditing) {
-        await api.updatePedido(id!, pedidoPayload);
+      const currentId = id; // Garante que pegamos o ID de qualquer forma
+      if (isEditing && currentId) {
+        console.log("DEBUG: EXECUTANDO UPDATE no ID:", currentId);
+        await api.updatePedido(currentId, pedidoPayload);
       } else {
+        console.log("DEBUG: EXECUTANDO CREATE (Novo Pedido)");
         await api.createPedido(pedidoPayload);
       }
       
