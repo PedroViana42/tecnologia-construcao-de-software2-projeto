@@ -63,6 +63,27 @@ export function PedidoForm() {
       if (isEditing) {
         const pedido = await api.getPedido(id!);
         setValue('cliente', pedido.cliente);
+        
+        if (pedido.ingressos && pedido.ingressos.length > 0) {
+          setValue('sessaoId', String(pedido.ingressos[0].sessaoId));
+          
+          // Grouping ingressos by type
+          const groups: Record<string, number> = {};
+          pedido.ingressos.forEach((ing: any) => {
+            groups[ing.tipo] = (groups[ing.tipo] || 0) + 1;
+          });
+          
+          const ingressosData = Object.entries(groups).map(([tipo, quantidade]) => ({
+            tipo: tipo as 'Inteira' | 'Meia',
+            quantidade
+          }));
+          
+          setValue('ingressos', ingressosData);
+        }
+
+        if (pedido.lancheCombos && pedido.lancheCombos.length > 0) {
+          setValue('lancheId', String(pedido.lancheCombos[0].id));
+        }
       }
     } catch (error) {
       console.error(error);
@@ -127,7 +148,11 @@ export function PedidoForm() {
         lancheComboIds
       };
 
-      await api.createPedido(pedidoPayload);
+      if (isEditing) {
+        await api.updatePedido(id!, pedidoPayload);
+      } else {
+        await api.createPedido(pedidoPayload);
+      }
       
       setSuccess(true);
       setTimeout(() => {

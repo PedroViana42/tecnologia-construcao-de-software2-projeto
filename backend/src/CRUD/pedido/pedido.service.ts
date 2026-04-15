@@ -58,6 +58,18 @@ export class PedidoService {
   findOne(id: number) {
     return this.prisma.pedido.findUnique({
       where: { id },
+      include: {
+        ingressos: {
+          include: {
+            sessao: {
+              include: {
+                filme: true,
+              },
+            },
+          },
+        },
+        lancheCombos: true,
+      },
     });
   }
 
